@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.5)
+project(turtlebot3_ball_collection)
+
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(PCL REQUIRED)
+find_package(pcl_conversions REQUIRED)
+
+include_directories(include)
+include_directories(${PCL_INCLUDE_DIRS})
+
+add_executable(ball_detector_node src/ball_detector_node.cpp)
+ament_target_dependencies(ball_detector_node rclcpp std_msgs geometry_msgs sensor_msgs visualization_msgs pcl_conversions)
+target_link_libraries(ball_detector_node ${PCL_LIBRARIES})
+
+add_executable(clustering_node src/clustering_node.cpp)
+ament_target_dependencies(clustering_node rclcpp std_msgs geometry_msgs sensor_msgs visualization_msgs pcl_conversions)
+target_link_libraries(clustering_node ${PCL_LIBRARIES})
+
+add_executable(tsp_planner_node src/tsp_planner_node.cpp)
+ament_target_dependencies(tsp_planner_node rclcpp std_msgs geometry_msgs nav_msgs sensor_msgs pcl_conversions)
+target_link_libraries(tsp_planner_node ${PCL_LIBRARIES})
+
+add_executable(path_planner_node src/path_planner_node.cpp)
+ament_target_dependencies(path_planner_node rclcpp std_msgs geometry_msgs nav_msgs tf2 tf2_ros nav2_msgs)
+
+install(TARGETS
+  ball_detector_node
+  clustering_node
+  tsp_planner_node
+  path_planner_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY launch param
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
