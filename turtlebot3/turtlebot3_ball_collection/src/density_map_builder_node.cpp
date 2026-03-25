@@ -61,6 +61,13 @@ void DensityMapBuilderNode::target_poses_callback(const geometry_msgs::msg::Pose
     points.push_back(pose.position);
   }
 
+  if (points.empty()) {
+    build_density_map(points);
+    publish_density_map();
+    send_peak_navigation_goal();
+    return;
+  }
+
   RCLCPP_INFO(this->get_logger(), "Received %zu balls from %s frame", points.size(), msg->header.frame_id.c_str());
 
   // Transform points to map frame using TF2
@@ -72,9 +79,8 @@ void DensityMapBuilderNode::target_poses_callback(const geometry_msgs::msg::Pose
       transform_stamped = tf_buffer_->lookupTransform(
         "map", msg->header.frame_id, msg->header.stamp, std::chrono::seconds(1));
     } catch (tf2::TransformException &ex) {
-      RCLCPP_WARN(this->get_logger(), "TF2 transform error: %s", ex.what());
-      // If transform fails, use points as-is
-      transformed_points = points;
+      RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000, "TF2 transform error: %s", ex.what());
+      return; 
     }
 
     // Transform each point to map frame

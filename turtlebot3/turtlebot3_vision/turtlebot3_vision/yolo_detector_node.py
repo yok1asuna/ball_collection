@@ -15,8 +15,12 @@ class RgbdYoloNode(Node):
         super().__init__('rgbd_yolo_node')
         self.bridge = CvBridge()
         
-        # 加载 YOLO 模型 (替换 best.pt)
-        self.model = YOLO("yolo11n.pt") 
+        # Declare parameter for model path
+        self.declare_parameter('model_path', '/home/u22/turtlebot/yolo11n.pt')
+        model_path = self.get_parameter('model_path').get_parameter_value().string_value
+        
+        # 加载 YOLO 模型
+        self.model = YOLO(model_path) 
         
         #相机内参 (通过订阅 /camera/camera_info 动态获取)
         self.camera_info_received = False
@@ -90,12 +94,9 @@ class RgbdYoloNode(Node):
             self.publish_target_poses(points, color_msg.header)
         else:
             self.get_logger().debug("No valid ball detections in this frame")
+            self.publish_target_poses([], color_msg.header)
 
     def publish_target_poses(self, points, header):
-        if not points or len(points) == 0:
-            self.get_logger().warn("Cannot publish empty target pose array")
-            return
-
         pose_array = PoseArray()
         pose_array.header = header
 

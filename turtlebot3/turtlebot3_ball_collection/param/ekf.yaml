@@ -1,0 +1,41 @@
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    publish_tf: true
+    frequency: 30.0
+    sensor_timeout: 0.1
+    two_d_mode: true
+    transform_time_offset: 0.0
+    transform_timeout: 0.0
+    print_diagnostics: true
+    debug: false
+
+    # 坐标系设置
+    map_frame: map              # 全局地图系
+    odom_frame: odom            # EKF要发布的里程计系
+    base_link_frame: base_footprint # 机器人的基座系
+    world_frame: odom           # 本地绝对系与odom相同
+
+    # 1. 订阅底层发来的原始轮式里程计话题
+    odom0: odom 
+    # [X, Y, Z, Roll, Pitch, Yaw]
+    # [Vx, Vy, Vz, Vroll, Vpitch, Vyaw]
+    # [Ax, Ay, Az]
+    # 对于纯轮子，我们只信任它的线速度 Vx, Vy (如果会横移) 和角速度 Vz
+    odom0_config: [false,  false,  false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+
+    # 2. 订阅 IMU 话题
+    imu0: imu 
+    # 对于 IMU，我们信任它的角速度(Yaw角速度)以及偏航方向(Yaw角)
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  true,  false, false]
+    
+    imu0_differential: false
+    odom0_differential: false
