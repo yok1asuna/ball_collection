@@ -6,21 +6,18 @@ This package implements an complete ball collection system for TurtleBot3 robots
 
 - Detects balls using YOLO and converts 2D pixel coordinates to 3D world coordinates
 - Builds a dynamic density map with Gaussian distribution and time decay
-- Identifies high-density areas using K-means clustering
-- Plans optimal paths using A\* with density-based cost function
-- Optimizes cluster visitation order using TSP
+- Identifies high-density areas automatically
 - Navigates to high-density areas to maximize ball collection efficiency
 
 ## Architecture
 
 1. **Detection Layer**: YOLOv11 processes RGB-D images to detect balls in 3D space
 2. **Perception Layer**: Transforms detections to map coordinates and builds density cost map
-3. **Planning Layer**: K-Means clustering + potential field A\* for optimal collection paths
 4. **Execution Layer**: Nav2 integration for autonomous navigation and collection
 
 ##
 
-## Topics
+## Topics 
 
 
 

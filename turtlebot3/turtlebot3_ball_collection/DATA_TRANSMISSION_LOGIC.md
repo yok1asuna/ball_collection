@@ -58,16 +58,23 @@ Purpose: Directly sends the coordinate $(X_{max}, Y_{max})$ of the highest poten
 
 **Launched Nodes**:
 
-
+- `yolo_detector_node`: Subscribes to RGB-D camera feeds, runs YOLO detection, and publishes the target 3D poses.
+- `density_map_builder_node`: Generates a dynamic spatial density map and directly sends goal points to the Nav2 action server.
+- `rotate_once`: Automatically rotates the TurtleBot3 360 degrees upon launch to securely initialize map coordinate targets.
+- `ekf_filter_node` (via `full_system.launch`): Fuses wheel odometry with IMU data for smoother pose tracking.
 
 ## Parameter Files
 
-
+- `param/ekf.yaml`: Configures the `robot_localization` parameters. Defines trusted vectors for `/odom` and `/imu`, mapping frames, and disables standard `publish_tf` to avoid competing with Gazebo's native local transforms.
+- `param/slam_toolbox.yaml`: Adjusts map correlation layers, loop closure distances, and ROS frame constraints for asynchronous 2D mapping.
 
 ## Visualization
 **RViz Topics**:
 
-
+- `/visualization/density_markers` (`visualization_msgs/MarkerArray`): Graphically renders the spatial density model (using colorized 3D blocks to depict coordinate "value").
+- `/map` (`nav_msgs/OccupancyGrid`): Visualizes real-time walls and objects mapped by the SLAM toolbox.
+- `/camera/color/image_raw` (`sensor_msgs/Image`): Display camera input frame.
+- `/scan` (`sensor_msgs/LaserScan`): The primary environmental readings from the LiDAR.
 
 ## Conclusion
 

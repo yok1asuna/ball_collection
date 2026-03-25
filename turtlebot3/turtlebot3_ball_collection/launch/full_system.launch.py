@@ -9,7 +9,7 @@ from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
-
+from launch_ros.actions import Node
 
 def generate_launch_description():
     turtlebot3_gazebo_dir = get_package_share_directory('turtlebot3_gazebo')
@@ -25,6 +25,16 @@ def generate_launch_description():
             'spawn_balls': LaunchConfiguration('spawn_balls'),
             'spawn_balls_count': LaunchConfiguration('spawn_balls_count')
         }.items()
+    )
+
+    # Robot Localization (EKF) for fusing Odom & IMU
+    ekf_config_path = os.path.join(turtlebot3_ball_collection_dir, 'param', 'ekf.yaml')
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config_path, {'use_sim_time': True}]
     )
 
     # Ball collection pipeline
@@ -65,6 +75,7 @@ def generate_launch_description():
         ),
 
         gazebo_launch,
+        ekf_node,
         ball_collection_launch,
         slam_nav_launch
     ])
