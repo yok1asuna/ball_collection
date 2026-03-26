@@ -6,14 +6,15 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
+from launch.actions import TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
-from launch_ros.actions import Node
 
 def generate_launch_description():
     turtlebot3_gazebo_dir = get_package_share_directory('turtlebot3_gazebo')
     turtlebot3_ball_collection_dir = get_package_share_directory('turtlebot3_ball_collection')
+    use_sim_time = LaunchConfiguration('use_sim_time')
 
     # Gazebo world launch
     gazebo_launch = IncludeLaunchDescription(
@@ -22,26 +23,23 @@ def generate_launch_description():
         ),
         launch_arguments={
             'world': LaunchConfiguration('world'),
+            'use_sim_time': use_sim_time,
+            'gui': LaunchConfiguration('gui'),
+            'x_pose': LaunchConfiguration('x_pose'),
+            'y_pose': LaunchConfiguration('y_pose'),
             'spawn_balls': LaunchConfiguration('spawn_balls'),
             'spawn_balls_count': LaunchConfiguration('spawn_balls_count')
         }.items()
-    )
-
-    # Robot Localization (EKF) for fusing Odom & IMU
-    ekf_config_path = os.path.join(turtlebot3_ball_collection_dir, 'param', 'ekf.yaml')
-    ekf_node = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
-        output='screen',
-        parameters=[ekf_config_path, {'use_sim_time': True}]
     )
 
     # Ball collection pipeline
     ball_collection_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(turtlebot3_ball_collection_dir, 'launch', 'ball_collection.launch.py')
-        )
+        ),
+        launch_arguments={
+            'use_sim_time': use_sim_time
+        }.items()
     )
 
     # SLAM + Navigation launch /to alternative pre-built map navigation
@@ -49,8 +47,13 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(turtlebot3_ball_collection_dir, 'launch', 'slam_navigation.launch.py')
         ),
+        launch_arguments={
+            'use_sim_time': use_sim_time
+        }.items(),
         condition=IfCondition(LaunchConfiguration('use_slam'))
     )
+
+    delayed_slam_nav_launch = TimerAction(period=5.0, actions=[slam_nav_launch])
 
     return LaunchDescription([
         DeclareLaunchArgument(
@@ -69,13 +72,32 @@ def generate_launch_description():
             description='Number of tennis balls to spawn at startup'
         ),
         DeclareLaunchArgument(
+            'gui',
+            default_value='true',
+            description='Whether to start Gazebo GUI client'
+        ),
+        DeclareLaunchArgument(
+            'x_pose',
+            default_value='0.0',
+            description='Robot spawn x position'
+        ),
+        DeclareLaunchArgument(
+            'y_pose',
+            default_value='0.0',
+            description='Robot spawn y position'
+        ),
+        DeclareLaunchArgument(
             'use_slam',
             default_value='true',
             description='Use SLAM Toolbox for mapping instead of pre-built map'
         ),
+        DeclareLaunchArgument(
+            'use_sim_time',
+            default_value='true',
+            description='Use simulation (Gazebo) clock if true'
+        ),
 
         gazebo_launch,
-        ekf_node,
         ball_collection_launch,
-        slam_nav_launch
+        delayed_slam_nav_launch
     ])

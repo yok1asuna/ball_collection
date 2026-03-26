@@ -408,14 +408,37 @@
         </camera>
           <plugin name="camera_driver" filename="libgazebo_ros_camera.so">
             <ros>
-              <!-- <namespace>test_cam</namespace> -->
-              <!-- <remapping>image_raw:=image_demo</remapping> -->
-              <!-- <remapping>camera_info:=camera_info_demo</remapping> -->
+              <remapping>image_raw:=/camera/color/image_raw</remapping>
+              <remapping>camera_info:=/camera/camera_info</remapping>
             </ros>
             <!-- camera_name>omit so it defaults to sensor name</camera_name-->
             <!-- frame_name>omit so it defaults to link name</frameName-->
             <!-- <hack_baseline>0.07</hack_baseline> -->
           </plugin>
+      </sensor>
+
+      <sensor name="depth_camera" type="depth">
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <update_rate>30</update_rate>
+        <camera name="intel_realsense_r200_depth">
+          <horizontal_fov>1.02974</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.02</near>
+            <far>10.0</far>
+          </clip>
+        </camera>
+        <plugin name="depth_camera_driver" filename="libgazebo_ros_camera.so">
+          <ros>
+            <remapping>image_raw:=/camera/depth/image_rect_raw</remapping>
+          </ros>
+          <frame_name>camera_depth_optical_frame</frame_name>
+        </plugin>
       </sensor>
     </link>    
 
@@ -513,7 +536,7 @@
 
       <!-- output -->
       <publish_odom>true</publish_odom>
-      <publish_odom_tf>false</publish_odom_tf>
+      <publish_odom_tf>true</publish_odom_tf>
       <publish_wheel_tf>false</publish_wheel_tf>
 
       <odometry_topic>odom</odometry_topic>

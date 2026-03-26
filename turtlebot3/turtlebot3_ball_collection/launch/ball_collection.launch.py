@@ -5,6 +5,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -13,12 +14,13 @@ def generate_launch_description():
     ball_collection_dir = get_package_share_directory('turtlebot3_ball_collection')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    enable_initial_rotation = LaunchConfiguration('enable_initial_rotation', default='false')
     params_file = LaunchConfiguration('params_file')
 
-    # Define the path to your YOLO model. You might want to make this a parameter.
+    # Define the path to YOLO model
     yolo_model_path = os.path.join(
         os.path.dirname(get_package_share_directory('turtlebot3_vision')), 
-        '../../yolo11n.pt'  # Adjust path as necessary relative to your install dir
+        'yolo11n.pt'
     )
 
     return LaunchDescription([
@@ -32,6 +34,11 @@ def generate_launch_description():
             default_value=os.path.join(ball_collection_dir, 'param', 'ball_collection.yaml'),
             description='Full path to param file to load'
         ),
+        DeclareLaunchArgument(
+            'enable_initial_rotation',
+            default_value='false',
+            description='Rotate robot once at startup to scan environment'
+        ),
 
         Node(
             package='turtlebot3_vision',
@@ -40,6 +47,8 @@ def generate_launch_description():
             output='screen',
             parameters=[{
                 'model_path': yolo_model_path,
+                'color_topic': '/camera/image_raw',
+                'depth_topic': '/depth_camera/depth/image_raw',
                 'use_sim_time': use_sim_time
             }]
         ),
@@ -49,6 +58,7 @@ def generate_launch_description():
             executable='rotate_once.py',
             name='initial_rotator',
             output='screen',
+            condition=IfCondition(enable_initial_rotation),
             parameters=[{'use_sim_time': use_sim_time}]
         ),
 

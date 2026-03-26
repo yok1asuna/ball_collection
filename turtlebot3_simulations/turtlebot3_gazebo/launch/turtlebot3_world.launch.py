@@ -33,6 +33,7 @@ def generate_launch_description():
     pkg_gazebo_ros = get_package_share_directory('gazebo_ros')
 
     use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    gui = LaunchConfiguration('gui', default='false')
     x_pose = LaunchConfiguration('x_pose', default='-2.0')
     y_pose = LaunchConfiguration('y_pose', default='-0.5')
 
@@ -60,6 +61,11 @@ def generate_launch_description():
         description='Number of random tennis balls to spawn'
     )
 
+    declare_gui_cmd = DeclareLaunchArgument(
+        'gui', default_value='false',
+        description='Whether to start Gazebo client GUI (gzclient)'
+    )
+
     gzserver_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, 'launch', 'gzserver.launch.py')
@@ -70,7 +76,8 @@ def generate_launch_description():
     gzclient_cmd = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_gazebo_ros, 'launch', 'gzclient.launch.py')
-        )
+        ),
+        condition=IfCondition(gui)
     )
 
     robot_state_publisher_cmd = IncludeLaunchDescription(
@@ -109,6 +116,7 @@ def generate_launch_description():
     ld.add_action(declare_world_cmd)
     ld.add_action(declare_spawn_balls_cmd)
     ld.add_action(declare_spawn_balls_count_cmd)
+    ld.add_action(declare_gui_cmd)
 
     # Add the commands to the launch description
     ld.add_action(gzserver_cmd)

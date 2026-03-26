@@ -1,88 +1,96 @@
-# Data Transmission Logic for TurtleBot3 Ball Collection Project
+# Data Transmission Logic for TurtleBot3 Ball Collection
 
 ## Overview
+This document describes the current 2-node architecture and the refined planning logic:
 
-I will show you the data transmission logic and specific locations for the entire TurtleBot3 ball collection project. It details how data flows between nodes, the topics used, message types, and the specific files where each component is implemented.
+- Keep the same two nodes.
+- Add an A* cost model in `density_map_builder_node`.
+- Make high-density (peak-related) cells cheaper while still considering travel distance.
 
 ## System Architecture
+The project consists of two nodes:
 
-The project consists of the following nodes:
+1. `yolo_detector_node`
+- Detects balls from RGB-D input.
+- Publishes dynamic 3D target poses.
 
-1. **yolo\_detector\_node** - Detects balls using YOLO and publishes dynamic 3D poses array.
-2. **density\_map\_builder\_node** - Builds a dynamic Gaussian density map from ball poses, extracts peak targets, and directly interfaces with the Nav2 stack.
+2. `density_map_builder_node`
+- Receives target poses.
+- Builds a dynamic Gaussian density map with time decay.
+- Extracts peak target(s).
+- Runs A* with a hybrid cost: distance + density reward.
+- Sends the selected goal to Nav2.
 
-## Detailed Data Transmission Logic
+## Data Flow
+1. Camera input to `yolo_detector_node`
+- `/camera/color/image_raw` (`sensor_msgs/Image`)
+- `/camera/depth/image_rect_raw` (`sensor_msgs/Image`)
 
-### 1. Ball Detection
+2. Vision output
+- `/vision/target_poses` (`geometry_msgs/PoseArray`)
 
-**Node**: `yolo_detector_node`
-**File**: `turtlebot3_vision` 
+3. Density and planning in `density_map_builder_node`
+- Subscribes `/vision/target_poses`
+- Publishes `/visualization/density_markers` (`visualization_msgs/MarkerArray`)
+- Sends navigation goal through `/navigate_to_pose` (`nav2_msgs/action/NavigateToPose`)
 
-**Data Inputs**:
+## Refined A* Planning Logic
+### Goal
+Use peak information from the Gaussian map as a semantic reward so that:
 
-- **Topic**: `/camera/color/image_raw` type: `sensor_msgs/Image`
-- Topic: `/camera/depth/image_rect_raw `   type: `sensor_msgs/Image`
+- Higher density means lower traversal cost.
+- Distance cost is still active.
 
-**Data Outputs**:
+### Notation
+- `D(i)`: density value of cell `i`
+- `D_norm(i)`: normalized density in `[0, 1]`
+- `d_step(i, j)`: geometric step distance from cell `i` to `j`
+- `w_dist`: distance weight
+- `w_peak`: peak reward weight
 
-- **Topic**: `/vision/target_poses` type: `geometry_msgs/PoseArray`
-  - Purpose: Publishes detected ball 3D poses from YOLO + depth.
+### Density normalization
+Use min-max normalization per update cycle:
 
-### 2. Density Map Construction
+`D_norm(i) = clamp((D(i) - D_min) / (D_max - D_min + eps), 0, 1)`
 
-**Node**: `density_map_builder_node`
-**File**: `src/density_map_builder_node.cpp`
+### Traversal cost per expansion
+For neighbor expansion `i -> j` in A*:
 
-**Data Inputs**:
+`c(i, j) = w_dist * d_step(i, j) + w_peak * (1 - D_norm(j))`
 
-- **Topic**: `/vision/target_poses` type:`geometry_msgs/PoseArray`
-  - Purpose:Receives dynamic 3D poses from the vision node.
+Interpretation:
+- If `D_norm(j)` is high (near peak), `(1 - D_norm(j))` is small, so cell cost decreases.
+- If `D_norm(j)` is low, the penalty increases.
 
-**Data Outputs**:
+### A* objective
+Standard form:
 
-- **Topic**: `/visualization/density_markers` type:`visualization_msgs/MarkerArray`
-  - Purpose:Publishes height-mapped colored grids in RViz to visualize the 2D Gaussian hills.
+- `g(j) = g(i) + c(i, j)`
+- `f(j) = g(j) + h(j)`
 
-- **Action Client**: `/navigate_to_pose` type:`nav2_msgs/action/NavigateToPose`
-Purpose: Directly sends the coordinate $(X_{max}, Y_{max})$ of the highest potential field peak to the Nav2 stack for immediate execution.
+Use Euclidean heuristic to the chosen peak (or selected target):
 
+`h(j) = w_h * ||j - goal||_2`
 
-## Launch Configuration
+### Peak selection policy
+Before A*:
+- Extract one or more local maxima from density map.
+- Option A: choose global peak as single goal.
+- Option B: choose top-k peaks, run A* for each, select minimal total objective.
 
-**File**: `launch/ball_collection.launch.py`
+## Practical Parameter Guidance
+- Start with `w_dist = 1.0`, `w_peak = 0.4 ~ 1.2`.
+- If robot ignores dense regions: increase `w_peak`.
+- If robot detours too much: decrease `w_peak`.
+- Keep a minimum peak threshold to avoid chasing noise.
 
-**Launch Arguments**:
-
-- `params_file`: Path to parameter file (default: `param/ball_collection.yaml`)
-- `ball_count`: Number of balls to spawn (default: 20)
-
-**Launched Nodes**:
-
-- `yolo_detector_node`: Subscribes to RGB-D camera feeds, runs YOLO detection, and publishes the target 3D poses.
-- `density_map_builder_node`: Generates a dynamic spatial density map and directly sends goal points to the Nav2 action server.
-- `rotate_once`: Automatically rotates the TurtleBot3 360 degrees upon launch to securely initialize map coordinate targets.
-- `ekf_filter_node` (via `full_system.launch`): Fuses wheel odometry with IMU data for smoother pose tracking.
-
-## Parameter Files
-
-- `param/ekf.yaml`: Configures the `robot_localization` parameters. Defines trusted vectors for `/odom` and `/imu`, mapping frames, and disables standard `publish_tf` to avoid competing with Gazebo's native local transforms.
-- `param/slam_toolbox.yaml`: Adjusts map correlation layers, loop closure distances, and ROS frame constraints for asynchronous 2D mapping.
-
-## Visualization
-**RViz Topics**:
-
-- `/visualization/density_markers` (`visualization_msgs/MarkerArray`): Graphically renders the spatial density model (using colorized 3D blocks to depict coordinate "value").
-- `/map` (`nav_msgs/OccupancyGrid`): Visualizes real-time walls and objects mapped by the SLAM toolbox.
-- `/camera/color/image_raw` (`sensor_msgs/Image`): Display camera input frame.
-- `/scan` (`sensor_msgs/LaserScan`): The primary environmental readings from the LiDAR.
+## Launch and Runtime Notes
+- File: `launch/ball_collection.launch.py`
+- Core nodes:
+  - `yolo_detector_node`
+  - `density_map_builder_node`
+  - optional `rotate_once.py` for initial scan
+- SLAM/Nav2 are launched from `full_system.launch.py`
 
 ## Conclusion
-
-The data transmission logic for the TurtleBot3 ball collection project follows a clear flow from ball detection to path planning. Each node has specific responsibilities and communicates through well-defined topics. The system is designed to:
-
-1. Detect balls using YOLO directly from camera RGB-D streams
-2. Construct a dynamic density map with Gaussian distribution and time decay
-3. Identify high-density areas (peak Gaussian spots)
-4. Dispatch navigation goals directly to the highest-density areas via Nav2 stack action server
-
-This architecture ensures efficient ball collection by prioritizing high-density areas, significantly enhancing recovery efficiency within a single battery life.
+planning is upgraded from "directly go to the max peak point" to "A* with semantic density reward + distance cost". This keeps path feasibility while biasing the robot toward high-yield ball regions.

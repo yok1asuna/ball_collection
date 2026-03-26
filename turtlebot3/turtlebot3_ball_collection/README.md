@@ -1,6 +1,6 @@
 # TurtleBot3 Ball Collection Package
 
-This package implements an complete ball collection system for TurtleBot3 robots using  YOLOv11 neural network for real-time multi-target detection, combined with SLAM spatial coordinate projection to build a target density cost map. It employs a heuristic priority path planning algorithm based on non-uniform potential fields, incorporating K-Means density clustering to identify high-yield areas, and uses an improved A\* planner to guide the robot along potential field gradients for efficient collection of outliers.
+This package implements an complete ball collection system for TurtleBot3 robots using  YOLOv11 neural network for real-time multi-target detection, combined with SLAM spatial coordinate projection to build a target density cost map. It employs a heuristic priority path planning algorithm based on Gaussian distribution and time decay, and uses an improved A\* planner to guide the robot for efficient collection.
 
 ## Features
 
@@ -19,8 +19,6 @@ This package implements an complete ball collection system for TurtleBot3 robots
 
 ## Topics 
 
-
-
 ## Dependencies
 
 - ROS2 Humble
@@ -35,16 +33,13 @@ This package implements an complete ball collection system for TurtleBot3 robots
    ```bash
    export TURTLEBOT3_MODEL=waffle
    ```
-
-<br />
-
-<br />
-
 1. Launch the system:
    ```bash
    ros2 launch turtlebot3_ball_collection full_system.launch.py
+   
+   ros2 run teleop_twist_keyboard teleop_twist_keyboard
    ```
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
 
 2. The robot will automatically detect balls using YOLO, build density maps, plan optimal collection paths, and navigate to targets.
 
@@ -57,12 +52,6 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 * Converts YOLO 3D detections to occupancy grid
 * Higher density regions have lower costs
 * Enables potential field-based path planning
-
-### K-Means Clustering
-
-- Groups high-density areas into clusters
-- Identifies optimal collection centroids
-- Reduces planning complexity
 
 ### Potential Field A\*
 
